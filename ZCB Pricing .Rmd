@@ -54,8 +54,133 @@ monte_carlo <- function(alpha, beta, sigma, t, T, r, n, s){
 ```
 
 ```{r 3}
-# Improvements to the Monte Carlo Simulation
+# Variance reduction techniques under the Monte Carlo
+#################################################################################
 # Antithetic Variates
+#################################################################################
+monte_carlo_A <- function(alpha, beta, sigma, t, T, r, n, s){
+  # s = number of sub-intervals
+  # n = number of simulation trials  
+  
+  dt <- T/s
+  sim_path <- matrix(NA,nrow = n, ncol = 2) # matrix to store simulated path integrals
+  sim_r <- NULL # vector to store rates on the path
+  
+  
+  for (d in 1:n){
+    sim_r[1] <- r
+    for (j in 2:s){
+      mu <- alpha/beta + exp(-beta*dt)*(sim_r[j-1] -alpha/beta)
+      sd <- sqrt((sigma^2/(2*beta))*(1 -exp(-2*beta*(dt))))
+      sim_r[j] <- rnorm(1,mu,sd)
+    }
+    sim_a=-sim_r# Conjugate interest rates
+    int <- dt*(sum(sim_r)) # integral of path
+    int_a <- dt*(sum(sim_a)) #integral of conjugate path
+    sim_path[d,1] <- exp(-int) # bond price of path
+    sim_path[d,2]= exp(-int_a) #bond price of conjugate path
+    sim_path_ave= (sim_path[d,1]+sim_path[d,2])/2 #Average of both paths are taken to maintain consistent mean
+    
+  }
+  mean(sim_path_ave) # empirical expectation of bond price using the average path
+}
+
+
+#################################################################################
+#Moment matching methods
+#################################################################################
+monte_carlo_MM <- function(alpha, beta, sigma, t, T, r, n, s){
+  # s = number of sub-intervals
+  # n = number of simulation trials  
+  
+  dt <- T/s
+  sim_path <- matrix(NA,nrow = n, ncol = 1) # matrix to store simulated path integrals
+  sim_r <- NULL # vector to store rates on the path
+  
+  
+  for (d in 1:n){
+    sim_r[1] <- r
+    for (j in 2:s){
+      mu <- alpha/beta + exp(-beta*dt)*(sim_r[j-1] -alpha/beta)
+      sd <- sqrt((sigma^2/(2*beta))*(1 -exp(-2*beta*(dt))))
+      sim_r[j] <- rnorm(1,mu,sd)
+    }
+    sim_mm=sim_r-mean(sim_r)# Moment matching transformation
+    int <- dt*(sum(sim_mm)) # integral of path
+    sim_path[d,1] <- exp(-int) # bond price of path
+    
+  }
+  mean(sim_path) # empirical expectation of bond price using all paths
+}
+#################################################################################
+#Control Variates
+#################################################################################
+# We have decided to make use of the CIR model as our control variate process.
+# Below is the closed form solution under the CIR model
+bond_price_CIR <- function(alpha,beta,sigma,t,T,r){
+  h <- sqrt(alpha^(2)+2*sigma^(2))
+  A <-(2*h*exp((alpha+h)(T-t)/2)/(2*h+(alpha+h)(exp((T-t)(h))-1)))^((2*alpha*beta)/sigma^(2))
+  B <-2*(exp((T-t)(h))-1)/(2*h+(alpha+h)(exp((T-t)(h))-1))
+  A*exp(-B*r)
+}
+
+# We now simulate the difference between CIR and Vasicek under the exponential find the expectation
+
+#Simulation under the Vasicek model
+monte_carlo(alpha, beta, sigma, t, T, r, n, s)
+
+# Simulation under the CIR model
+
+CIR_MC= function(alpha, beta, sigma, t, T, r, n, s){
+  
+  dt <- T/s
+  sim_path_c <- matrix(NA,nrow = n, ncol = 1) # matrix to store simulated path integrals
+  sim_c <- NULL # vector to store rates on the path
+  
+  for(i in 1:n){
+    sim_c[1]=r
+    for(j in 2:s+1){
+      dr <- alpha*(beta-sim_c[j-1])*dt + sigma*sqrt(dt)*sqrt(sim_c[j-1])*rnorm(1,0,1)
+      sim_c[j] <- sim_c[j-1] + dr
+    }
+    int_c <- dt*(sum(sim_c)) # integral of path
+    sim_path_c[i,1] <- exp(-int) # bond price of path
+    
+  }
+  
+  mean(sim_path_c)
+}
+# Therefore the control variates estimate:
+
+Control_variate_estimate=function(alpha, beta, sigma, t, T, r, n, s){
+  monte_carlo(alpha, beta, sigma, t, T, r, n, s)- CIR_MC(alpha, beta, sigma, t, T, r, n, s)+bond_price_CIR(alpha,beta,sigma,t,T,r)
+  
+}
+
+#################################################################################
+
+
+
+
+
+
+
+ 
+    
+  
+  
+ 
+  
+  
+  
+  
+  
+  
+  
+
+
+
+
 
 ```
 
